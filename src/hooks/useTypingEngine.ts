@@ -6,9 +6,9 @@ import type { EngineState, Mode, Duration } from '../engine/types'
 
 export type TestConfig = { mode: Mode; durationSeconds: Duration }
 
-export function useTypingEngine(config: TestConfig) {
+export function useTypingEngine(config: TestConfig, customTarget?: string) {
   const [state, setState] = useState<EngineState>(() =>
-    createEngine(buildTarget(config.mode, config.durationSeconds)),
+    createEngine(customTarget || buildTarget(config.mode, config.durationSeconds)),
   )
   const [secondsLeft, setSecondsLeft] = useState<number>(config.durationSeconds)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -25,10 +25,12 @@ export function useTypingEngine(config: TestConfig) {
   const restart = useCallback((keepTarget = false) => {
     stopTimer()
     setState((prev) =>
-      createEngine(keepTarget ? prev.target : buildTarget(config.mode, config.durationSeconds)),
+      createEngine(
+        keepTarget ? prev.target : (customTarget || buildTarget(config.mode, config.durationSeconds)),
+      ),
     )
     setSecondsLeft(config.durationSeconds)
-  }, [config.mode, config.durationSeconds, stopTimer])
+  }, [config.mode, config.durationSeconds, customTarget, stopTimer])
 
   // Rebuild when config changes.
   useEffect(() => {

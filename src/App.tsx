@@ -8,6 +8,8 @@ import { computeMetrics } from './engine/metrics'
 import {
   buildSession, saveSession, loadSessions, isPersonalBest, type TypingSession,
 } from './storage/history'
+import { buildCoachInput } from './coach/summary'
+import { generatePassage } from './coach/passage'
 
 export default function App() {
   const [config, setConfig] = useState<TestConfig>({ mode: 'words', durationSeconds: 30 })
@@ -15,8 +17,9 @@ export default function App() {
   const [showWpm, setShowWpm] = useState(true)
   const [sessions, setSessions] = useState<TypingSession[]>(() => loadSessions())
   const [isBest, setIsBest] = useState(false)
+  const [customTarget, setCustomTarget] = useState<string | undefined>(undefined)
 
-  const engine = useTypingEngine(config)
+  const engine = useTypingEngine(config, customTarget)
 
   const liveMetrics = engine.state.status === 'running'
     ? computeMetrics(engine.state, Math.max(1, engine.elapsedSeconds || 1))
@@ -41,7 +44,14 @@ export default function App() {
   }, [engine.state.status, engine.metrics, config, view])
 
   const repeat = useCallback(() => { setView('test'); engine.restart(true) }, [engine])
-  const newTest = useCallback(() => { setView('test'); engine.restart(false) }, [engine])
+  const newTest = useCallback(() => { setCustomTarget(undefined); setView('test'); engine.restart(false) }, [engine])
+
+  const startExercise = useCallback(() => {
+    if (!engine.metrics) return
+    const input = buildCoachInput(engine.metrics, config.mode, config.durationSeconds, sessions)
+    const { passage } = generatePassage(input)
+    if (passage.trim()) { setCustomTarget(passage.trim()); setView('test') }
+  }, [engine.metrics, config.mode, config.durationSeconds, sessions])
 
   if (view === 'results' && engine.metrics) {
     return (
@@ -53,6 +63,7 @@ export default function App() {
         isBest={isBest}
         onRepeat={repeat}
         onNewTest={newTest}
+        onStartExercise={startExercise}
       />
     )
   }
@@ -65,7 +76,7 @@ export default function App() {
           mode={config.mode}
           duration={config.durationSeconds}
           disabled={engine.state.status === 'running'}
-          onChange={(c) => setConfig({ mode: c.mode, durationSeconds: c.duration })}
+          onChange={(c) => { setCustomTarget(undefined); setConfig({ mode: c.mode, durationSeconds: c.duration }) }}
         />
       </header>
 

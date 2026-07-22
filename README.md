@@ -50,6 +50,16 @@ npm test
 npm run build
 ```
 
+## Coach
+
+After each test, TypePilot shows a coaching card — one strength, one weakness, and a
+recommendation (e.g. "You're fast, but your accuracy drops on punctuation") — and a
+**Start recommended exercise** button that generates a practice passage built from your
+weakest letters and loads it straight into the typing test.
+
+This runs entirely in your browser with deterministic rule-based logic. There is no AI
+service, no API key, and no network call — it works offline and sends nothing anywhere.
+
 ## Project structure
 
 The typing engine is deliberately **framework-free and fully unit-tested** — React only wires it to input, a timer, and rendering.
