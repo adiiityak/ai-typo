@@ -10,7 +10,7 @@ export function useTypingEngine(config: TestConfig) {
   const [state, setState] = useState<EngineState>(() =>
     createEngine(buildTarget(config.mode, config.durationSeconds)),
   )
-  const [secondsLeft, setSecondsLeft] = useState(config.durationSeconds)
+  const [secondsLeft, setSecondsLeft] = useState<number>(config.durationSeconds)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now())
