@@ -1,124 +1,106 @@
-# TypePilot — AI Coach (Analysis + Passage Generation) — Design
+# TypePilot — Coach (Rule-Based, No API) — Design
 
 **Date:** 2026-07-22
-**Scope:** Phase 5, Slice 1 of the TypePilot roadmap — the first AI features: post-test coaching analysis and a personalized practice-passage generator. Defers the daily plan, chat coach, and adaptive difficulty to later slices.
+**Scope:** Phase 5, Slice 1 of the TypePilot roadmap — post-test coaching feedback and a personalized practice passage, implemented with **deterministic rule-based logic** (no LLM, no external API, no key). Defers daily plan, chat coach, and adaptive difficulty to later slices.
 **Status:** Approved for implementation planning.
 **Depends on:** the shipped MVP (typing engine + results + localStorage history).
+**Supersedes:** the earlier Gemini-based version of this spec — the LLM backend is dropped entirely.
 
 ## 1. Goal
 
-Turn a finished test into a coaching moment. After a test, the user sees a short, specific AI analysis (one strength, one weakness, one recommendation) and can start a personalized practice passage generated to target their weak letters and slow words — fed straight into the existing typing engine. This is the "Understand → Practise" half of the roadmap's core loop.
+Turn a finished test into a coaching moment, using only the metrics we already compute. After a test, the user sees a short, specific analysis — one strength, one weakness, one recommendation (e.g. *"You're fast, but your accuracy drops on punctuation."*) — and can start a personalized practice passage built from their own weak letters, fed into the existing typing engine. This is the "Understand → Practise" half of the roadmap's core loop.
 
 ## 2. Decisions (locked)
 
 | Decision | Choice |
 |----------|--------|
-| LLM provider | Google Gemini (free tier) |
-| SDK | `@google/genai` (Google Gen AI SDK for JS/TS) — **not** the Anthropic SDK |
-| Model | `gemini-2.5-flash`, overridable via `COACH_MODEL` env var |
-| API key | `GEMINI_API_KEY`, server-side only (never in the browser) |
-| Backend | Small Node + Express server in `server/`, run alongside Vite in dev |
-| Structured analysis | Gemini structured output: `responseMimeType: "application/json"` + `responseSchema` |
-| Passage output | Plain text |
-| AI timing | Only after a test completes — never during typing |
-| Data sent | A compact metrics summary only — never keystrokes or raw text |
-| Failure behavior | AI is additive; results always render even when AI fails |
+| Intelligence | Rule-based heuristics — deterministic, in-browser |
+| External services | **None** — no LLM, no API, no key, no network, no backend |
+| Runtime | Pure synchronous functions; the app stays a static site (works offline) |
+| Coaching output | `{ strength, weakness, recommendation, exerciseType }` |
+| Passage output | `{ passage, focus }` |
+| Timing | Computed only after a test completes, on the results screen |
+| Determinism | Same metrics → same coaching + same passage (fully testable, no mocks) |
 
 ## 3. Architecture
 
-The project becomes two processes: the existing Vite SPA (frontend) and a new Express API server that holds `GEMINI_API_KEY` and calls Gemini. The key never reaches the browser.
+Two pure client-side modules plus a results-screen card and a small engine tweak. No `server/`, no `.env`, no `fetch`.
 
 ```
-server/
-  index.ts            Express app: JSON body parsing, CORS (dev), error middleware
-  gemini.ts           GoogleGenAI client (reads GEMINI_API_KEY + COACH_MODEL from env)
-  prompts.ts          system + user prompt builders (pure functions)
-  schema.ts           response schema for the structured analysis
-  summary.ts          builds the CoachInput payload from a TypingSession
-  routes/
-    analyze.ts        POST /api/analyze  → { strength, weakness, recommendation, exerciseType }
-    passage.ts        POST /api/passage  → { passage, focus }
 src/
-  api/coach.ts        typed client wrapper (fetch + timeout + error normalization)
+  coach/
+    summary.ts     CoachInput type + CoachAnalysis type + buildCoachInput(metrics, mode, duration, history)
+    analyze.ts     analyze(input) -> CoachAnalysis  (rule-based)
+    passage.ts     generatePassage(input) -> { passage, focus }  (rule-based)
   components/Results/
-    AiCoachCard.tsx    loading / coach / fallback states on the results screen
+    AiCoachCard.tsx   renders analysis instantly + "Start recommended exercise"
+  hooks/useTypingEngine.ts   (modified: optional customTarget)
+  App.tsx                    (modified: customTarget state + start-exercise handler)
 ```
 
-- **Dev:** Vite proxies `/api/*` → `http://localhost:3001` (added to `vite.config.ts`). `npm run dev` runs both processes via `concurrently` (`dev:web` + `dev:api`).
-- **Server runtime:** Express + `tsx` (or `ts-node`) for dev; the server is deployable later as serverless functions with minimal glue, but a plain server keeps it runnable and testable now.
-- The engine, storage, and existing components are untouched except for mounting the new coach card and wiring the "Start Recommended Exercise" button.
+Because the coach is synchronous and can never fail on a network, there are no loading or error/fallback states — the card always renders the analysis. The engine, storage, and other components are untouched except for mounting the card and wiring the start-exercise button.
 
-## 4. Data contract (client → server)
+## 4. Coach input
 
-Per the roadmap's hard rule (*"Do not send every keystroke to the AI"*), the client sends only a compact summary, derived from data already computed for the results screen:
+Built from data already on the results screen (`Metrics`) plus localStorage history:
 
 ```ts
 type CoachInput = {
-  netWpm: number
-  grossWpm: number
-  accuracy: number            // 0–100
-  consistency: number         // 0–100
-  weakLetters: string[]       // top ~5 from mistypedLetters, most-missed first
-  slowestWords: string[]      // from slowestWords
+  netWpm: number; grossWpm: number; accuracy: number; consistency: number
+  weakLetters: string[]     // top ~5 from mistypedLetters, most-missed first
+  slowestWords: string[]    // from metrics.slowestWords
   backspaceCount: number
-  recentAverageWpm: number    // mean netWpm over localStorage history (0 if none)
-  mode: 'words' | 'quotes'
-  durationSeconds: 30 | 60
+  recentAverageWpm: number  // mean netWpm over history (0 if none)
+  mode: 'words' | 'quotes'; durationSeconds: 30 | 60
 }
 ```
 
-`summary.ts` builds this from a `TypingSession` + the loaded history. No raw typed text, no per-keystroke data, no PII.
+## 5. Analysis rules (`analyze.ts`)
 
-## 5. Endpoints
+Deterministic, priority-ordered. `analyze(input)` returns `{ strength, weakness, recommendation, exerciseType }`.
 
-### `POST /api/analyze`
-- Body: `CoachInput`.
-- Calls Gemini with a supportive-coach system instruction (roadmap's analysis prompt: one strength, one weakness, a concise explanation, one next action, a recommended exercise type; <100 words; no shaming; no generic advice) and **structured output** enforced by `responseSchema`.
-- Returns (validated shape):
-  ```ts
-  { strength: string; weakness: string; recommendation: string; exerciseType: string }
-  ```
+**Strength** — first match wins:
+1. `accuracy >= 97` → excellent accuracy
+2. `recentAverageWpm > 0 && netWpm >= recentAverageWpm + 3` → faster than recent average
+3. `consistency >= 85` → very steady pace
+4. `netWpm >= 60` → strong speed
+5. else → solid steady pace
 
-### `POST /api/passage`
-- Body: `CoachInput` (or a subset: level, focus letters/words, mode).
-- Calls Gemini with the roadmap's passage-generation prompt (repeat focus patterns naturally, match difficulty, don't exceed target length by >10%, return only the passage).
-- Returns: `{ passage: string; focus: string[] }`.
+**Weakness + kind** — first match wins (kind drives recommendation + `exerciseType`):
+1. `accuracy < 90` → kind `accuracy` → `accuracy_warmup`
+2. any weak letter is punctuation (non-alphanumeric, non-space) → kind `punctuation` → `punctuation_accuracy`
+3. there are alphabetic weak letters and `accuracy < 97` → kind `letters` (names top 3) → `weak_letter_drill`
+4. `backspaceCount >= 15` → kind `backspace` → `no_backspace`
+5. `consistency < 60` → kind `consistency` → `rhythm`
+6. else → kind `none` (no major weak spot) → `speed`
 
-Both routes: validate the request body, call Gemini, and map any provider error (missing key, rate limit, timeout, malformed output) to a clean JSON error `{ error: string; code: string }` with an appropriate HTTP status. No secrets in error responses.
+Each kind maps to a fixed, human recommendation string (e.g. `punctuation` → "Practice a punctuation-heavy passage, focusing on commas and periods.").
 
-## 6. Client integration
+## 6. Passage generation (`passage.ts`)
 
-- **AI Coach card** on the results screen: on mount, `POST`s the summary to `/api/analyze`. Three states:
-  1. **Loading** — skeleton placeholder.
-  2. **Coach** — strength, weakness, recommendation, and a *Start Recommended Exercise* button.
-  3. **Fallback** — friendly message ("Coach is unavailable right now — your results are saved.") on any error/timeout. Results are never blocked by the AI call.
-- **Start Recommended Exercise** → `POST /api/passage`, then load the returned passage into the **existing typing engine** as a custom target (the engine already accepts any string; no engine changes needed). This lands the user in a practice test built from their own weak spots.
-- `src/api/coach.ts`: typed `analyze(input)` and `generatePassage(input)` with a ~15s timeout and normalized errors, so components handle one clean success/failure contract.
+`generatePassage(input)` returns `{ passage, focus }`, deterministically:
+- `focus` = alphabetic weak letters, top 3 (empty if none).
+- Draw from a curated word bank, preferring words that contain a focus letter; fall back to the full bank if too few match.
+- Assemble ~45 words by iterating the preferred pool in order (repeating to reach the target length) — deterministic, no randomness.
+- If a weak letter is punctuation, format the words into sentences (capitalized starts, commas at a fixed cadence, periods to end sentences) so the passage actually exercises punctuation.
 
-## 7. Error handling & resilience
+The result is loaded into the existing typing engine as a custom target (the engine already accepts any string).
 
-- **No AI calls during a test** — only after completion, on the results screen.
-- **Missing/!invalid `GEMINI_API_KEY`** → server returns a clear `code: "not_configured"`; client shows the fallback with a dev-only hint. The app still works fully without a key.
-- **Timeouts / rate limits / provider 5xx** → fallback UI; results and history intact.
-- **Malformed model output** on `/api/analyze` is largely prevented by `responseSchema`; if parsing still fails, treat as an error → fallback.
+## 7. Client integration
+
+- **AI Coach card** on the results screen: computes `analyze(coachInput)` synchronously (via `useMemo`) and renders strength / weakness / recommendation, plus a **Start recommended exercise** button.
+- **Start recommended exercise** → `generatePassage(coachInput)` (synchronous) → load the passage into the engine as a custom target and switch to the test view.
+- Selecting a new mode/duration clears the custom target so normal generation resumes.
 
 ## 8. Testing
 
-- **Server (unit, deterministic — no live API):**
-  - `summary.ts`: `TypingSession` + history → correct `CoachInput` (weak-letter ordering, recent-average math, empty-history case).
-  - `prompts.ts`: prompt builders include the focus letters/words and honor constraints.
-  - `routes/*`: the Gemini client is **mocked**; assert the right model/schema/params are sent and that provider errors map to the correct HTTP status + error code. No network calls in tests.
-- **Client (unit):**
-  - `coach.ts`: `fetch` mocked — success, HTTP error → normalized error, timeout.
-  - `AiCoachCard.tsx`: renders loading → coach on success, loading → fallback on error.
-- No live LLM calls anywhere in the suite; everything deterministic.
+All deterministic, no mocks, no network:
+- `summary.ts`: `Metrics` + history → correct `CoachInput` (weak-letter ordering, recent-average math, empty history).
+- `analyze.ts`: representative metric scenarios → expected strength phrase, weakness kind, and `exerciseType` (high accuracy, low accuracy, punctuation-weak, letter-weak, fast-vs-recent, clean run).
+- `passage.ts`: passage contains focus letters, honors length bounds, injects punctuation when punctuation is weak, and is identical for identical input.
+- `AiCoachCard.tsx`: renders the analysis and the start button; clicking it invokes the handler.
+- `App.tsx`: finishing a test then clicking start loads the generated passage into the engine.
 
-## 9. Configuration & secrets
+## 9. Out of scope (later slices)
 
-- `.env` (gitignored): `GEMINI_API_KEY=...`, optional `COACH_MODEL=gemini-2.5-flash`, optional `PORT=3001`.
-- `.env.example` committed with placeholder values and a short setup note (get a free key from Google AI Studio).
-- `README` gains an "AI Coach (optional)" section: how to get a free key, that the app runs without one, and the free-tier caveats (rate limits; only anonymous typing stats are sent).
-
-## 10. Out of scope (later slices)
-
-AI daily training plan, AI chat coach, adaptive difficulty auto-adjustment, mistake-pattern detection across many tests, keyboard heatmap, XP/gamification. The `CoachInput` contract and the server are structured so these layer on without rework.
+Real LLM integration, AI daily training plan, chat coach, adaptive difficulty auto-adjustment, cross-test mistake-pattern detection, keyboard heatmap, gamification. The `CoachInput` contract and the `coach/` module boundary are structured so a real LLM could later back `analyze`/`generatePassage` behind the same interfaces without touching the UI.
