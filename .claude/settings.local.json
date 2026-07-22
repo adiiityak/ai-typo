@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__aa73e030-47be-41e3-bcaa-0d2940031816__get_figma_skill",
+      "mcp__aa73e030-47be-41e3-bcaa-0d2940031816__whoami",
+      "mcp__aa73e030-47be-41e3-bcaa-0d2940031816__use_figma",
+      "mcp__aa73e030-47be-41e3-bcaa-0d2940031816__get_screenshot",
+      "Bash(curl -sL -o /private/tmp/claude-504/-Users-adityaramsarekanojiya-Claude-Webpages-mob-app/8697df0e-e4f9-41f2-a102-7cfbf0ee5bef/scratchpad/home1.png \"https://www.figma.com/api/mcp/asset/f3d34e1b-c022-4232-8f1f-27866526dec7\")",
+      "Bash(curl -sL -o /private/tmp/claude-504/-Users-adityaramsarekanojiya-Claude-Webpages-mob-app/8697df0e-e4f9-41f2-a102-7cfbf0ee5bef/scratchpad/home2.png \"https://www.figma.com/api/mcp/asset/4d726e7c-9dee-4057-8926-521b6efead35\")",
+      "Bash(curl -sL -o /private/tmp/claude-504/-Users-adityaramsarekanojiya-Claude-Webpages-mob-app/8697df0e-e4f9-41f2-a102-7cfbf0ee5bef/scratchpad/s2.png \"https://www.figma.com/api/mcp/asset/74831af7-29b4-4532-a670-dde470f3a3b6\")",
+      "Bash(git init *)",
+      "Bash(git config *)",
+      "Bash(git add *)",
+      "Bash(git commit -q -m 'chore: add design spec and implementation plan *)"
+    ]
+  }
+}
