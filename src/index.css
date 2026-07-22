@@ -1,0 +1,20 @@
+@import 'tailwindcss';
+
+@theme {
+  --color-bg: #0d0e12;
+  --color-surface: #16181f;
+  --color-muted: #4b5060;
+  --color-fg: #e6e8ee;
+  --color-accent: #6c5cff;
+  --color-accent-soft: #8b7dff;
+  --color-error: #ff5c6c;
+  --color-correct: #e6e8ee;
+  --font-mono: ui-monospace, 'SF Mono', 'Fira Code', monospace;
+}
+
+html, body, #root { height: 100%; }
+body { background: var(--color-bg); color: var(--color-fg); margin: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+}
