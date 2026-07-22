@@ -40,8 +40,8 @@ export default function App() {
     setView('results')
   }, [engine.state.status, engine.metrics, config, view])
 
-  const repeat = useCallback(() => { setView('test'); engine.restart() }, [engine])
-  const newTest = useCallback(() => { setView('test'); engine.restart() }, [engine])
+  const repeat = useCallback(() => { setView('test'); engine.restart(true) }, [engine])
+  const newTest = useCallback(() => { setView('test'); engine.restart(false) }, [engine])
 
   if (view === 'results' && engine.metrics) {
     return (
@@ -82,7 +82,7 @@ export default function App() {
       </main>
 
       <footer className="flex gap-3">
-        <button type="button" onClick={engine.restart}
+        <button type="button" onClick={() => engine.restart()}
           className="rounded-lg bg-surface px-4 py-2 text-sm text-muted hover:text-fg">
           Restart (↻)
         </button>

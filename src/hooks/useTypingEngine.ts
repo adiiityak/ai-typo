@@ -22,9 +22,11 @@ export function useTypingEngine(config: TestConfig) {
     }
   }, [])
 
-  const restart = useCallback(() => {
+  const restart = useCallback((keepTarget = false) => {
     stopTimer()
-    setState(createEngine(buildTarget(config.mode, config.durationSeconds)))
+    setState((prev) =>
+      createEngine(keepTarget ? prev.target : buildTarget(config.mode, config.durationSeconds)),
+    )
     setSecondsLeft(config.durationSeconds)
   }, [config.mode, config.durationSeconds, stopTimer])
 
@@ -67,11 +69,21 @@ export function useTypingEngine(config: TestConfig) {
   useEffect(() => stopTimer, [stopTimer])
 
   const elapsedSeconds = config.durationSeconds - secondsLeft
+
+  // On finish, prefer the true typing time. If the target was completed early,
+  // the tick counter is coarse (or zero before the first tick) — use the
+  // timestamp of the last typed character instead. On timer expiry, the full
+  // duration is the correct denominator.
+  const completedEarly = state.status === 'finished' && state.cursor >= state.target.length
+  const finishedElapsed = completedEarly
+    ? (state.progressTimes[state.cursor] ?? 0) / 1000
+    : config.durationSeconds
+
   const metrics: Metrics | null = useMemo(
     () => (state.status === 'finished'
-      ? computeMetrics(state, Math.max(1, elapsedSeconds || config.durationSeconds))
+      ? computeMetrics(state, Math.max(0.5, finishedElapsed))
       : null),
-    [state, elapsedSeconds, config.durationSeconds],
+    [state, finishedElapsed],
   )
 
   return { state, secondsLeft, onChar, onBackspace, restart, metrics, elapsedSeconds }
