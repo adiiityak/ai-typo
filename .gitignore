@@ -5,3 +5,8 @@ dist
 
 # SDD scratch
 .superpowers/
+
+# TS build info / emitted config
+*.tsbuildinfo
+vite.config.d.ts
+vite.config.js
