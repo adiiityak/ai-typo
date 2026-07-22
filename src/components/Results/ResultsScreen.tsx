@@ -5,6 +5,8 @@ import { MetricGrid } from './MetricGrid'
 import { WpmTimelineChart } from './WpmTimelineChart'
 import { ErrorBreakdown } from './ErrorBreakdown'
 import { HistoryList } from './HistoryList'
+import { AiCoachCard } from './AiCoachCard'
+import { buildCoachInput } from '../../coach/summary'
 
 type Props = {
   metrics: Metrics
@@ -14,9 +16,10 @@ type Props = {
   isBest: boolean
   onRepeat: () => void
   onNewTest: () => void
+  onStartExercise?: () => void
 }
 
-export function ResultsScreen({ metrics, mode, duration, sessions, isBest, onRepeat, onNewTest }: Props) {
+export function ResultsScreen({ metrics, mode, duration, sessions, isBest, onRepeat, onNewTest, onStartExercise }: Props) {
   return (
     <div className="mx-auto flex max-w-4xl flex-col gap-6 p-6">
       <div className="flex items-end gap-6">
@@ -35,6 +38,10 @@ export function ResultsScreen({ metrics, mode, duration, sessions, isBest, onRep
       <MetricGrid metrics={metrics} />
       <WpmTimelineChart timeline={metrics.timeline} />
       <ErrorBreakdown metrics={metrics} />
+      <AiCoachCard
+        coachInput={buildCoachInput(metrics, mode, duration, sessions)}
+        onStartExercise={onStartExercise}
+      />
       <HistoryList sessions={sessions} />
 
       <div className="flex gap-3">
