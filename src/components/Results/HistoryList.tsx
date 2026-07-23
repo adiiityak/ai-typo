@@ -1,7 +1,7 @@
 import type { TypingSession } from '../../storage/history'
 
-export function HistoryList({ sessions }: { sessions: TypingSession[] }) {
-  const recent = [...sessions].reverse().slice(0, 5)
+export function HistoryList({ sessions, limit = 5 }: { sessions: TypingSession[]; limit?: number }) {
+  const recent = [...sessions].reverse().slice(0, limit)
   if (recent.length === 0) return null
   return (
     <div className="rounded-lg bg-surface p-4">
