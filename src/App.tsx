@@ -10,10 +10,12 @@ import {
 } from './storage/history'
 import { buildCoachInput } from './coach/summary'
 import { generatePassage } from './coach/passage'
+import { Nav } from './components/Nav'
+import { DashboardScreen } from './components/Dashboard/DashboardScreen'
 
 export default function App() {
   const [config, setConfig] = useState<TestConfig>({ mode: 'words', durationSeconds: 30 })
-  const [view, setView] = useState<'test' | 'results'>('test')
+  const [view, setView] = useState<'test' | 'results' | 'dashboard'>('test')
   const [showWpm, setShowWpm] = useState(true)
   const [sessions, setSessions] = useState<TypingSession[]>(() => loadSessions())
   const [isBest, setIsBest] = useState(false)
@@ -46,12 +48,26 @@ export default function App() {
   const repeat = useCallback(() => { setView('test'); engine.restart(true) }, [engine])
   const newTest = useCallback(() => { setCustomTarget(undefined); setView('test'); engine.restart(false) }, [engine])
 
+  const navigate = useCallback((v: 'test' | 'dashboard') => {
+    if (v === 'dashboard') setSessions(loadSessions())
+    setView(v)
+  }, [])
+
   const startExercise = useCallback(() => {
     if (!engine.metrics) return
     const input = buildCoachInput(engine.metrics, config.mode, config.durationSeconds, sessions)
     const { passage } = generatePassage(input)
     if (passage.trim()) { setCustomTarget(passage.trim()); setView('test') }
   }, [engine.metrics, config.mode, config.durationSeconds, sessions])
+
+  if (view === 'dashboard') {
+    return (
+      <div className="mx-auto flex min-h-screen max-w-4xl flex-col gap-8 p-6">
+        <Nav active="dashboard" onNavigate={navigate} />
+        <DashboardScreen sessions={sessions} onStartTest={() => navigate('test')} />
+      </div>
+    )
+  }
 
   if (view === 'results' && engine.metrics) {
     return (
@@ -70,8 +86,8 @@ export default function App() {
 
   return (
     <div className="mx-auto flex min-h-screen max-w-4xl flex-col gap-8 p-6">
-      <header className="flex items-center justify-between">
-        <span className="font-mono text-lg text-accent">TypePilot</span>
+      <Nav active="test" onNavigate={navigate} />
+      <header className="flex items-center justify-end">
         <ConfigBar
           mode={config.mode}
           duration={config.durationSeconds}

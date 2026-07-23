@@ -22,6 +22,15 @@ describe('App', () => {
     expect(JSON.parse(localStorage.getItem('typepilot.sessions')!)).toHaveLength(1)
   })
 
+  it('navigates between the test and dashboard views', async () => {
+    render(<App />)
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    await user.click(screen.getByRole('button', { name: /^dashboard$/i }))
+    expect(screen.getByText(/take your first test/i)).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /^test$/i }))
+    expect(screen.getByLabelText('typing input')).toBeInTheDocument()
+  })
+
   it('starts a practice exercise from a generated passage', async () => {
     render(<App />)
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
