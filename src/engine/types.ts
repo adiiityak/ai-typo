@@ -1,4 +1,4 @@
-export type Mode = 'words' | 'quotes'
+export type Mode = 'words' | 'quotes' | 'numbers' | 'punctuation'
 export type Duration = 30 | 60
 
 export type CharacterEvent = {

@@ -37,9 +37,51 @@ export function randomQuote(pick: (n: number) => number = (n) => Math.floor(Math
   return QUOTES[idx]
 }
 
+export function generateNumbers(count: number, rng: () => number = Math.random): string {
+  const out: string[] = []
+  for (let i = 0; i < count; i++) {
+    const len = 1 + Math.floor(rng() * 4) // 1-4 digits
+    let group = ''
+    for (let j = 0; j < len; j++) group += Math.floor(rng() * 10)
+    out.push(group)
+  }
+  return out.join(' ')
+}
+
+const ENDERS = ['.', '.', '.', '?', '!'] // weighted toward periods
+
+export function generatePunctuation(wordCount: number, rng: () => number = Math.random): string {
+  const sentences: string[] = []
+  let produced = 0
+  while (produced < wordCount) {
+    const remaining = wordCount - produced
+    const len = Math.min(remaining, 5 + Math.floor(rng() * 5)) // 5-9 words
+    const words: string[] = []
+    for (let i = 0; i < len; i++) words.push(WORDS[pickIndex(rng, WORDS.length)])
+    words[0] = words[0].charAt(0).toUpperCase() + words[0].slice(1)
+    if (len >= 4) {
+      const commaAt = 1 + Math.floor(rng() * (len - 2))
+      words[commaAt] = words[commaAt] + ','
+    }
+    produced += len
+    const isLast = produced >= wordCount
+    const ender = isLast ? '.' : ENDERS[pickIndex(rng, ENDERS.length)]
+    sentences.push(words.join(' ') + ender)
+  }
+  return sentences.join(' ')
+}
+
 export function buildTarget(mode: Mode, duration: Duration, rng: () => number = Math.random): string {
-  if (mode === 'quotes') return randomQuote((n) => pickIndex(rng, n))
-  // ~3 words/sec upper bound for a fast typist; generate generously so it never runs out.
-  const wordCount = Math.ceil(duration * 3) + 20
-  return generateWords(wordCount, rng)
+  const streamCount = Math.ceil(duration * 3) + 20
+  switch (mode) {
+    case 'quotes':
+      return randomQuote((n) => pickIndex(rng, n))
+    case 'numbers':
+      return generateNumbers(streamCount, rng)
+    case 'punctuation':
+      return generatePunctuation(streamCount, rng)
+    case 'words':
+    default:
+      return generateWords(streamCount, rng)
+  }
 }
