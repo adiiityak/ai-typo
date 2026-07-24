@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { computeDashboardStats } from './stats'
+import { computeDashboardStats, practiceStreak } from './stats'
 import type { TypingSession } from '../storage/history'
 
 function session(overrides: Partial<TypingSession>): TypingSession {
@@ -63,5 +63,19 @@ describe('computeDashboardStats', () => {
     expect(s.weakLetters[0]).toEqual({ letter: 'r', count: 5 })
     expect(s.weakLetters).toContainEqual({ letter: 'e', count: 4 })
     expect(s.weakLetters).toContainEqual({ letter: 't', count: 1 })
+  })
+})
+
+describe('practiceStreak', () => {
+  it('is 0 for empty history', () => {
+    expect(practiceStreak([])).toBe(0)
+  })
+  it('counts consecutive days regardless of input order', () => {
+    const s = [
+      session({ completedAt: '2026-07-23T08:00:00.000Z' }),
+      session({ completedAt: '2026-07-21T10:00:00.000Z' }),
+      session({ completedAt: '2026-07-22T09:00:00.000Z' }),
+    ]
+    expect(practiceStreak(s)).toBe(3)
   })
 })

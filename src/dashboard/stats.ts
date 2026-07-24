@@ -17,9 +17,12 @@ function dayKey(iso: string): string {
   return iso.slice(0, 10) // YYYY-MM-DD (UTC date from the stored ISO string)
 }
 
-function computeStreak(dayKeys: Set<string>, lastKey: string): number {
+export function practiceStreak(sessions: TypingSession[]): number {
+  if (sessions.length === 0) return 0
+  const dayKeys = new Set(sessions.map((s) => dayKey(s.completedAt)))
+  const lastIso = sessions.reduce((max, s) => (s.completedAt > max ? s.completedAt : max), sessions[0].completedAt)
   let streak = 0
-  const cursor = new Date(lastKey + 'T00:00:00Z')
+  const cursor = new Date(dayKey(lastIso) + 'T00:00:00Z')
   while (dayKeys.has(cursor.toISOString().slice(0, 10))) {
     streak++
     cursor.setUTCDate(cursor.getUTCDate() - 1)
@@ -43,8 +46,7 @@ export function computeDashboardStats(sessions: TypingSession[]): DashboardStats
   const totalTests = ordered.length
   const totalSeconds = ordered.reduce((sum, s) => sum + s.durationSeconds, 0)
 
-  const dayKeys = new Set(ordered.map((s) => dayKey(s.completedAt)))
-  const streakDays = computeStreak(dayKeys, dayKey(ordered[ordered.length - 1].completedAt))
+  const streakDays = practiceStreak(ordered)
 
   const agg: Record<string, number> = {}
   for (const s of ordered) {
