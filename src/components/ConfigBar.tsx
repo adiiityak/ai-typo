@@ -8,7 +8,7 @@ type Props = {
   disabled?: boolean
 }
 
-const MODES: Mode[] = ['words', 'quotes']
+const MODES: Mode[] = ['words', 'quotes', 'numbers', 'punctuation']
 const DURATIONS: Duration[] = [30, 60]
 
 function Pill({ active, disabled, onClick, children }: {
