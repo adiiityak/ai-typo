@@ -12,6 +12,7 @@ import { buildCoachInput } from './coach/summary'
 import { generatePassage } from './coach/passage'
 import { Nav } from './components/Nav'
 import { DashboardScreen } from './components/Dashboard/DashboardScreen'
+import { DailyChallengeCard } from './components/DailyChallengeCard'
 
 export default function App() {
   const [config, setConfig] = useState<TestConfig>({ mode: 'words', durationSeconds: 30 })
@@ -22,6 +23,7 @@ export default function App() {
   const [customTarget, setCustomTarget] = useState<string | undefined>(undefined)
 
   const engine = useTypingEngine(config, customTarget)
+  const today = new Date().toISOString().slice(0, 10)
 
   const liveMetrics = engine.state.status === 'running'
     ? computeMetrics(engine.state, Math.max(1, engine.elapsedSeconds || 1))
@@ -95,6 +97,10 @@ export default function App() {
           onChange={(c) => { setCustomTarget(undefined); setConfig({ mode: c.mode, durationSeconds: c.duration }) }}
         />
       </header>
+
+      {engine.state.status !== 'running' && (
+        <DailyChallengeCard sessions={sessions} today={today} />
+      )}
 
       <LiveMetrics
         secondsLeft={engine.secondsLeft}

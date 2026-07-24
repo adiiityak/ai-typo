@@ -22,6 +22,11 @@ describe('App', () => {
     expect(JSON.parse(localStorage.getItem('typepilot.sessions')!)).toHaveLength(1)
   })
 
+  it('shows the daily goal on the test screen', () => {
+    render(<App />)
+    expect(screen.getByText(/daily goal/i)).toBeInTheDocument()
+  })
+
   it('navigates between the test and dashboard views', async () => {
     render(<App />)
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
